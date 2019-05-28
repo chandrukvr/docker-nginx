@@ -1,21 +1,3 @@
-# [START cloudbuild]
-steps:
-# This step builds the container image.
-- name: 'gcr.io/cloud-builders/docker'
-  id: Build
-  args:
-  - 'build'
-  - '-t'
-  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
-  - '.'
-  
-# This step pushes the container image.  
-- name: 'gcr.io/cloud-builders/docker'
-  id: Push
-  args:
-  - 'push'
-  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
-# [END cloudbuild]
 # [START cloudbuild-trigger-cd]
 # This step clones the gke-dn-deploy repository
 - name: 'gcr.io/cloud-builders/gcloud'
