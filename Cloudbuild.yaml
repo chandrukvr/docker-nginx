@@ -1,0 +1,57 @@
+# [START cloudbuild]
+steps:
+# This step builds the container image.
+- name: 'gcr.io/cloud-builders/docker'
+  id: Build
+  args:
+  - 'build'
+  - '-t'
+  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
+  - '.'
+  
+# This step pushes the container image.  
+- name: 'gcr.io/cloud-builders/docker'
+  id: Push
+  args:
+  - 'push'
+  - 'gcr.io/$PROJECT_ID/docker-nginx:$SHORT_SHA'
+# [END cloudbuild]
+# [START cloudbuild-trigger-cd]
+# This step clones the gke-dn-deploy repository
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: Clone env repository
+  entrypoint: /bin/sh
+  args:
+  - '-c'
+  - |
+    gcloud source repos clone gke-dn-deploy && \
+    cd gke-dn-deploy && \
+    git checkout master && \
+    git config user.email $(gcloud auth list --filter=status:ACTIVE --format='value(account)')
+
+# This step generates the new manifest
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: Generate manifest
+  entrypoint: /bin/sh
+  args:
+  - '-c'
+  - |
+     sed "s/GOOGLE_CLOUD_PROJECT/${PROJECT_ID}/g" kubernetes.yaml.tpl | \
+     sed "s/COMMIT_SHA/${SHORT_SHA}/g" > gke-dn-deploy/kubernetes.yaml
+
+# This step pushes the manifest back to gke-sb-deploy
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: Push manifest
+  entrypoint: /bin/sh
+  args:
+  - '-c'
+  - |
+    set -x && \
+    cd gke-dn-deploy && \
+    git add kubernetes.yaml && \
+    git commit -m "Deploying image gcr.io/${PROJECT_ID}/docker-nginx:${SHORT_SHA}
+    Built from commit ${COMMIT_SHA} of repository github_chandrukvr_docker-nginx
+    Author: $(git log --format='%an <%ae>' -n 1 HEAD)" && \
+    git push origin master
+
+# [END cloudbuild-trigger-cd]
